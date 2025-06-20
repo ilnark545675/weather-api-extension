@@ -1,4 +1,8 @@
 class WeatherExtension {
+  constructor() {
+    this.cache = new Map();
+  }
+
   getInfo() {
     return {
       id: 'weather',
@@ -147,16 +151,17 @@ class WeatherExtension {
   }
 
   async getWeatherData(city) {
+    if (this.cache.has(city)) {
+      const { data, timestamp } = this.cache.get(city);
+      if (Date.now() - timestamp < 3600000) return data;
+    }
     const { lat, lon } = await this.getCoordinates(city);
     const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m,precipitation_probability,cloudcover,pressure_msl,windspeed_10m,winddirection_10m&daily=sunrise,sunset&timezone=auto`);
     const data = await response.json();
     if (!data.current_weather) throw new Error('Ошибка загрузки погоды');
-    return {
-      city,
-      current: data.current_weather,
-      hourly: data.hourly,
-      daily: data.daily
-    };
+    const result = { city, current: data.current_weather, hourly: data.hourly, daily: data.daily };
+    this.cache.set(city, { data: result, timestamp: Date.now() });
+    return result;
   }
 
   async getTemperature(args) {
